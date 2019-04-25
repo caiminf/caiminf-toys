@@ -1,0 +1,9 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/caiminf-toys.vcxproj.user
+/caiminf-toys.vcxproj.filters
+/caiminf-toys.vcxproj
+/caiminf-toys.sln
+/.vs/caiminf-toys/v15

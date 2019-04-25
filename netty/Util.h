@@ -1,0 +1,16 @@
+#pragma once
+#include <sys/types.h>
+
+#define int64_t long long
+
+const int DEFAULT_PORT = 8000;
+const int MAX_RECV_BUFFER_LEN = 4096;
+const int MAX_SEND_BUFFER_LEN = 4096;
+
+////////////////////////////////////////////////////////////
+//返回系统从某个时间点开始的时间计数
+//nType为时间单位:
+//   TICK_TYPE_SECOND      0   -- unit is second.        秒
+//   TICK_TYPE_MILLISECOND 1   -- unit is millisecond. 毫秒
+//   TICK_TYPE_MICROSECOND 2   -- unit is microsecond. 微秒
+int64_t GetTickCount(int nType = 1);
