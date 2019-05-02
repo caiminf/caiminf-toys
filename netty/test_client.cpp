@@ -100,6 +100,7 @@ int main(int argc, char *argv[])
 	if (argc != 4)
 	{
 		printf("invalid parameter\n");
+		printf("Usage: ./client [connection] [rangeStart] [rangeEnd]\n");
 		return -1;
 	}
 

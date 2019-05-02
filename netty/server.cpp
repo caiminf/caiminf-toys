@@ -10,11 +10,24 @@
 #include <pthread.h>
 #include <string>
 #include <map>
+#include <queue>
 
 #include "Util.h"
 
 using std::map;
 using std::string;
+using std::queue;
+
+struct TaskInfo
+{
+	string reqId;
+	int64_t iterateTimes;
+	uint64_t recvTime;
+	int sock;
+};
+
+queue<TaskInfo> g_TaskList;
+bool g_exitFlag;
 
 int CreateTcpSocket(unsigned short port)
 {
@@ -73,54 +86,85 @@ map<string, string> FormStringToMap(string reqStr)
 	return res;
 }
 
-int ProcessRecvBuf(char *inputBuf, int inputBufLen, char *outputBuf, 
-					int outputBufMaxLen, int& outputBufLen)
+int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int sock)
+{
+	if (resTask == NULL)
+	{
+		printf("resTask is NULL\n");
+		return -1;
+	}
+	map<string, string> reqMap = FormStringToMap(string(inputBuf));
+	map<string, string>::iterator iter = reqMap.find("request_id");
+	if (iter == reqMap.end())
+	{
+		printf("request_id not found\n");
+		return -2;
+	}
+	else
+	{
+		resTask->reqId = iter->second;
+	}
+	iter = reqMap.find("iterate_times");
+	if (iter == reqMap.end())
+	{
+		printf("ierate_times not found\n");
+		return -3;
+	}
+	else
+	{
+		resTask->iterateTimes = atoll(iter->second.c_str());
+	}
+	resTask->sock = sock;
+	resTask->recvTime = GetTickCount(1);
+	return 0;
+}
+
+int ProcessTask(const TaskInfo& task, string &response)
 {
 	int64_t tcStart = GetTickCount(1);
-	map<string, string> reqMap = FormStringToMap(string(inputBuf));
-	int64_t num = atoll(reqMap["num"].c_str());
+	int64_t iterateTimes = task.iterateTimes;
 	const int pace = 100000000;
 	int tmpPace = pace;
-	for (int64_t i = 0; i < num; i++)
+	for (int64_t i = 0; i < iterateTimes; i++)
 	{
 		if (--tmpPace == 0)
 		{
 			int64_t tc = GetTickCount(1);
-			printf("num_remain = %ld, already cost %ldms\n", num - i, tc - tcStart);
+			printf("num_remain = %ld, already cost %ldms\n", iterateTimes - i, tc - tcStart);
 			tmpPace = pace;
 		}
 	}
 	int64_t tcEnd = GetTickCount(1);
 	int64_t cost = tcEnd - tcStart;
-	outputBufLen = snprintf(outputBuf, outputBufMaxLen, "request_id=%s&costTime=%ld\n", reqMap["request_id"].c_str(), cost);
+	response = "request_id=" + task.reqId + "costTime=" + std::to_string(cost);
 	return 0;
 }
 
-void *ConnectThreadProc(void *lp)
+void *WorkerThreadProc(void *lp)
 {
-	int *p = (int *)lp;
-	int clientFd = *p;
-	delete p;
-
-	char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
-	int nbytes = read(clientFd, recvBuf, sizeof(recvBuf));
-
-	char sendBuf[MAX_SEND_BUFFER_LEN] = { 0 };
-	int resultLen = 0;
-	int ret = ProcessRecvBuf(recvBuf, nbytes, sendBuf, sizeof(sendBuf), resultLen);
-	if (ret != 0)
+	while (!g_exitFlag)
 	{
-		printf("process recv buf failed ret=%d\n", ret);
-		close(clientFd);
-		return NULL;
+		if (g_TaskList.empty())
+		{
+			usleep(100);
+			continue;
+		}
+		TaskInfo task = g_TaskList.front();
+		g_TaskList.pop();
+		string response;
+		int ret = ProcessTask(task, response);
+		if (ret != 0)
+		{
+			printf("ProcessTask failed reqest_id=%s\n", task.reqId.c_str());
+			continue;
+		}
+		int nbytes = write(task.sock, response.c_str(), response.length());
 	}
-	nbytes = write(clientFd, sendBuf, resultLen);
-	close(clientFd);
-	return NULL;
 }
 
 int main()
 {
+	g_exitFlag = false;
 	int listenFd = CreateTcpSocket(DEFAULT_PORT);
 	if (listenFd < 0)
 	{
@@ -131,19 +175,29 @@ int main()
 	struct sockaddr_in clientAddr;
 	socklen_t addrLen = sizeof(clientAddr);
 
-	while (true)
+	pthread_t tid;
+	int ret = pthread_create(&tid, NULL, WorkerThreadProc, NULL);
+	if (0 != ret)
 	{
-		int *clientFdPointer = new int;
-		*clientFdPointer = accept(listenFd, (struct sockaddr *)&clientAddr, &addrLen);
-		printf("accept client, ip: %s, port: %d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
-		pthread_t tid;
-		int ret = pthread_create(&tid, NULL, ConnectThreadProc, clientFdPointer);
-		if (0 != ret)
+		perror("create connect thread fail");
+		return -2;
+	}
+
+	int clientFd = accept(listenFd, (struct sockaddr *)&clientAddr, &addrLen);
+	printf("accept client, ip: %s, port: %d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
+	char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
+
+	while (!g_exitFlag)
+	{
+		int nbytes = read(clientFd, recvBuf, sizeof(recvBuf));
+		TaskInfo taskInfo;
+		ret = ParseReqToTask(recvBuf, nbytes, &taskInfo, clientFd);
+		if (ret != 0)
 		{
-			perror("create connect thread fail");
-			close(*clientFdPointer);
-			delete clientFdPointer;
+			printf("ParseReqToTask error, ret=%d\n", ret);
+			continue;
 		}
+		g_TaskList.push(taskInfo);
 	}
 	return 0;
 }
