@@ -1,6 +1,6 @@
 #include "Condition.h"
 
-Condition::Condition(Mutex mutex) : m_mutex(mutex)
+Condition::Condition(Mutex& mutex) : m_mutex(mutex)
 {
 	m_cond = PTHREAD_COND_INITIALIZER;
 }

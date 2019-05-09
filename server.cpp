@@ -13,6 +13,7 @@
 #include <queue>
 
 #include "Util.h"
+#include "LockedList.h"
 
 using std::map;
 using std::string;
@@ -26,7 +27,7 @@ struct TaskInfo
 	int sock;
 };
 
-queue<TaskInfo> g_TaskList;
+LockedList<TaskInfo> g_TaskList;
 bool g_exitFlag;
 
 int CreateTcpSocket(unsigned short port)
@@ -144,13 +145,7 @@ void *WorkerThreadProc(void *lp)
 {
 	while (!g_exitFlag)
 	{
-		if (g_TaskList.empty())
-		{
-			usleep(100);
-			continue;
-		}
-		TaskInfo task = g_TaskList.front();
-		g_TaskList.pop();
+		TaskInfo task = g_TaskList.pop();
 		string response;
 		int ret = ProcessTask(task, response);
 		if (ret != 0)

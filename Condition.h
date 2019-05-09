@@ -6,7 +6,7 @@
 class Condition
 {
 public:
-	Condition(Mutex mutex);
+	Condition(Mutex& mutex);
 	void wait();
 	void notify();
 	void notify_all();

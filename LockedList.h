@@ -8,7 +8,7 @@ class LockedList
 {
 public:
 	LockedList();
-	bool pop(T& res);
+	T pop();
 	void push(const T& element);
 	bool empty();
 	int size();
@@ -22,17 +22,21 @@ private:
 template <typename T>
 LockedList<T>::LockedList() : m_mutex()
                             , m_cond(m_mutex)
+							, m_queue()
 {
 }
 
 template <typename T>
-bool LockedList<T>::pop(T& res)
+T LockedList<T>::pop()
 {
 	MutexLockGuard guard(m_mutex);
-	m_cond.wait();
-	res = m_queue.front();
+	while (m_queue.empty())
+	{
+		m_cond.wait();
+	}
+	T front = m_queue.front();
 	m_queue.pop();
-	return true;
+	return T;
 }
 
 template <typename T>
@@ -48,11 +52,13 @@ void LockedList<T>::push(const T& element)
 template <typename T>
 bool LockedList<T>::empty()
 {
+	MutexLockGuard guard(m_mutex);
 	return m_queue.empty();
 }
 
 template <typename T>
 int LockedList<T>::size()
 {
+	MutexLockGuard guard(m_mutex);
 	return m_queue.size();
 }
