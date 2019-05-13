@@ -36,7 +36,7 @@ T LockedList<T>::pop()
 	}
 	T front = m_queue.front();
 	m_queue.pop();
-	return T;
+	return front;
 }
 
 template <typename T>
