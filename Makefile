@@ -1,16 +1,18 @@
-TARGET=server
+
 LIB=-lstdc++ -lrt -lpthread
-LIBA=
+CC=g++
 FLAGS=-Wall -Werror -g
-OBJS=$(patsubst %.c,%.o,$(wildcard *.c)) $(patsubst %.cpp,%.o,$(wildcard *.cpp))  
+OBJS=$(patsubst %.c,%.o,$(wildcard ./src/*.c)) $(patsubst %.cpp,%.o,$(wildcard ./src/*.cpp))  
+INC=-I./include/
 
-all:$(TARGET)
 
-$(TARGET):${OBJS}
-		g++ $^ $(LIBA) $(LIB) -g $(FLAGS) -o $@
+all: server
+
+server: ${OBJS} ./program/server.cpp
+		$(CC) $^ $(LIB) $(FLAGS) -o $@
 		
-.cpp.o:
-		$(CC) $(FLAGS) $(INCLUDE) -g -o $@ -c $<
+%.o: %.c
+		$(CC) $(FLAGS) $(INCLUDE) -o $@ -c $<
 
 clean:
 		rm -rf $(TARGET)
