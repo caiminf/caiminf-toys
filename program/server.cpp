@@ -20,6 +20,14 @@ using std::map;
 using std::string;
 using std::queue;
 
+int CreateTcpSocket(unsigned short port);
+map<string, string> FormStringToMap(string reqStr);
+void ReadTaskFromSocket(int fd);
+int ProcessTask(const TaskInfo& task, string &response);
+int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int sock);
+
+
+
 struct TaskInfo
 {
 	string reqId;
