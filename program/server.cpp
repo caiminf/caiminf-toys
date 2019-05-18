@@ -20,14 +20,6 @@ using std::map;
 using std::string;
 using std::queue;
 
-int CreateTcpSocket(unsigned short port);
-map<string, string> FormStringToMap(string reqStr);
-void ReadTaskFromSocket(int fd);
-int ProcessTask(const TaskInfo& task, string &response);
-int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int sock);
-
-
-
 struct TaskInfo
 {
 	string reqId;
@@ -96,6 +88,39 @@ map<string, string> FormStringToMap(string reqStr)
 	return res;
 }
 
+int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int sock)
+{
+	if (resTask == NULL)
+	{
+		printf("resTask is NULL\n");
+		return -1;
+	}
+	map<string, string> reqMap = FormStringToMap(string(inputBuf));
+	map<string, string>::iterator iter = reqMap.find("request_id");
+	if (iter == reqMap.end())
+	{
+		printf("request_id not found\n");
+		return -2;
+	}
+	else
+	{
+		resTask->reqId = iter->second;
+	}
+	iter = reqMap.find("iterate_times");
+	if (iter == reqMap.end())
+	{
+		printf("ierate_times not found\n");
+		return -3;
+	}
+	else
+	{
+		resTask->iterateTimes = atoll(iter->second.c_str());
+	}
+	resTask->sock = sock;
+	resTask->recvTime = GetTickCount(1);
+	return 0;
+}
+
 void ReadTaskFromSocket(int fd)
 {
 	bool done = false;
@@ -132,39 +157,6 @@ void ReadTaskFromSocket(int fd)
 			g_TaskList.push(taskInfo);
 		}
 	}
-}
-
-int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int sock)
-{
-	if (resTask == NULL)
-	{
-		printf("resTask is NULL\n");
-		return -1;
-	}
-	map<string, string> reqMap = FormStringToMap(string(inputBuf));
-	map<string, string>::iterator iter = reqMap.find("request_id");
-	if (iter == reqMap.end())
-	{
-		printf("request_id not found\n");
-		return -2;
-	}
-	else
-	{
-		resTask->reqId = iter->second;
-	}
-	iter = reqMap.find("iterate_times");
-	if (iter == reqMap.end())
-	{
-		printf("ierate_times not found\n");
-		return -3;
-	}
-	else
-	{
-		resTask->iterateTimes = atoll(iter->second.c_str());
-	}
-	resTask->sock = sock;
-	resTask->recvTime = GetTickCount(1);
-	return 0;
 }
 
 int ProcessTask(const TaskInfo& task, string &response)
