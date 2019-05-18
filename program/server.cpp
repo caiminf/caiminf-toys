@@ -11,6 +11,7 @@
 #include <string>
 #include <map>
 #include <queue>
+#include <sys/epoll.h>
 
 #include "Util.h"
 #include "LockedList.h"
@@ -85,6 +86,44 @@ map<string, string> FormStringToMap(string reqStr)
 		lastPos = andPos + 1;
 	}
 	return res;
+}
+
+void ReadTaskFromSocket(int fd)
+{
+	bool done = false;
+	while (true)
+	{
+		char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
+		
+		int count = read(fd, recvBuf, sizeof(recvBuf));
+		if (count == 0)
+		{
+			// EOF
+			done = true;
+			break;
+		}
+		else if (count == -1)
+		{
+			// error or EAGAIN
+			if (errno != EAGAIN && errno != EWOULDBLOCK)
+			{
+				perror("read error");
+				done = true;
+			}
+			break;
+		}
+		else
+		{
+			TaskInfo taskInfo;
+			int ret = ParseReqToTask(recvBuf, count, &taskInfo, fd);
+			if (ret != 0)
+			{
+				printf("ParseReqToTask error, ret=%d\n", ret);
+				continue;
+			}
+			g_TaskList.push(taskInfo);
+		}
+	}
 }
 
 int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int sock)
@@ -167,9 +206,6 @@ int main()
 		return -1;
 	}
 
-	struct sockaddr_in clientAddr;
-	socklen_t addrLen = sizeof(clientAddr);
-
 	pthread_t tid;
 	int ret = pthread_create(&tid, NULL, WorkerThreadProc, NULL);
 	if (0 != ret)
@@ -178,21 +214,42 @@ int main()
 		return -2;
 	}
 
-	int clientFd = accept(listenFd, (struct sockaddr *)&clientAddr, &addrLen);
-	printf("accept client, ip: %s, port: %d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
-	char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
+	struct epoll_event ev, events[MAX_EVENTS];
+	int epollFd = epoll_create1(0);
+
+	ev.events = EPOLLIN | EPOLLET;
+	ev.data.fd = listenFd;
+	epoll_ctl(epollFd, EPOLL_CTL_ADD, listenFd, &ev);
 
 	while (!g_exitFlag)
 	{
-		int nbytes = read(clientFd, recvBuf, sizeof(recvBuf));
-		TaskInfo taskInfo;
-		ret = ParseReqToTask(recvBuf, nbytes, &taskInfo, clientFd);
-		if (ret != 0)
+		int activeFdCnt = epoll_wait(epollFd, events, MAX_EVENTS, -1);
+		for (int i = 0; i < activeFdCnt; i++)
 		{
-			printf("ParseReqToTask error, ret=%d\n", ret);
-			continue;
+			if (events[i].data.fd == listenFd)
+			{
+				struct sockaddr_in clientAddr;
+				socklen_t addrLen = sizeof(clientAddr);
+				int connectSocket = accept(listenFd, (struct sockaddr *)&clientAddr, &addrLen);
+				if (connectSocket == -1)
+				{
+					if (errno != EAGAIN && errno != EWOULDBLOCK)
+					{
+						perror("accept error");
+					}
+					continue;
+				}
+				SetNonBlocking(connectSocket);
+				ev.events = EPOLLIN | EPOLLET;
+				ev.data.fd = connectSocket;
+				epoll_ctl(epollFd, EPOLL_CTL_ADD, connectSocket, &ev);
+			}
+			else
+			{
+				ReadTaskFromSocket(events[i].data.fd);
+			}
 		}
-		g_TaskList.push(taskInfo);
 	}
+
 	return 0;
 }

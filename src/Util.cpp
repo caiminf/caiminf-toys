@@ -1,6 +1,8 @@
 #include "Util.h"
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 ////////////////////////////////////////////////////////////
 //返回系统从某个时间点开始的时间计数
@@ -25,4 +27,11 @@ int64_t GetTickCount(int nType/* = 1*/)
 		return ((int64_t)tp.tv_sec) * 1000000 + ((int64_t)tp.tv_nsec) / 1000;
 	}
 	return 0;
+}
+
+int SetNonBlocking(int fd) {
+	int s;
+	s = fcntl(fd, F_GETFL, 0);
+	s |= O_NONBLOCK;
+	return fcntl(fd, F_SETFL, s);
 }
