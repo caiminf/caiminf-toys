@@ -109,7 +109,7 @@ int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int 
 	iter = reqMap.find("iterate_times");
 	if (iter == reqMap.end())
 	{
-		printf("ierate_times not found\n");
+		printf("iterate_times not found\n");
 		return -3;
 	}
 	else
@@ -239,6 +239,7 @@ int main()
 					}
 					continue;
 				}
+				printf("accept new connection\n");
 				SetNonBlocking(connectSocket);
 				ev.events = EPOLLIN | EPOLLET;
 				ev.data.fd = connectSocket;

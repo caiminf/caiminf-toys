@@ -7,7 +7,6 @@ Condition::Condition(Mutex& mutex) : m_mutex(mutex)
 
 void Condition::wait()
 {
-	m_mutex.lock();
 	pthread_cond_wait(&m_cond, &m_mutex.m_mutex);
 }
 

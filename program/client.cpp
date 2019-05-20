@@ -62,7 +62,7 @@ void *ClientThreadProc(void *lp)
 
 	map<string, string> reqMap = {
 		{ "request_id", "00001" },
-		{ "num", std::to_string(calNum) }
+		{ "iterate_times", std::to_string(calNum) }
 	};
 	string reqStr = FormRequestString(reqMap);
 	strncpy(sendBuf, reqStr.c_str(), MAX_SEND_BUFFER_LEN);
