@@ -218,7 +218,7 @@ int main()
 	struct epoll_event ev, events[MAX_EVENTS];
 	int epollFd = epoll_create1(0);
 
-	ev.events = EPOLLIN | EPOLLET;
+	ev.events = EPOLLIN;
 	ev.data.fd = listenFd;
 	epoll_ctl(epollFd, EPOLL_CTL_ADD, listenFd, &ev);
 
