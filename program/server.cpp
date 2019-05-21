@@ -155,6 +155,7 @@ void ReadTaskFromSocket(int fd)
 				continue;
 			}
 			g_TaskList.push(taskInfo);
+			printf("task list size = %d\n", g_TaskList.size());
 		}
 	}
 }
@@ -237,6 +238,7 @@ int main()
 					{
 						perror("accept error");
 					}
+					printf("conncetsot error\n");
 					continue;
 				}
 				printf("accept new connection\n");
