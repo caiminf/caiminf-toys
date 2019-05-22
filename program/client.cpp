@@ -56,7 +56,6 @@ void *ClientThreadProc(void *lp)
 		return NULL;
 	}
 	
-
 	char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
 	char sendBuf[MAX_SEND_BUFFER_LEN] = { 0 };
 

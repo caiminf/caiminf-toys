@@ -177,7 +177,7 @@ int ProcessTask(const TaskInfo& task, string &response)
 	}
 	int64_t tcEnd = GetTickCount(1);
 	int64_t cost = tcEnd - tcStart;
-	response = "request_id=" + task.reqId + "costTime=" + std::to_string(cost);
+	response = "request_id=" + task.reqId + "&costTime=" + std::to_string(cost);
 	return 0;
 }
 
@@ -197,8 +197,17 @@ void *WorkerThreadProc(void *lp)
 	}
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+	if (argc != 2)
+	{
+		printf("invalid parameter\n");
+		printf("Usage: ./server [workerThreadCnt]\n");
+		return -1;
+	}
+
+	int workerThreadCnt = atoi(argv[1]);
+
 	g_exitFlag = false;
 	int listenFd = CreateTcpSocket(DEFAULT_PORT);
 	if (listenFd < 0)
@@ -207,12 +216,15 @@ int main()
 		return -1;
 	}
 
-	pthread_t tid;
-	int ret = pthread_create(&tid, NULL, WorkerThreadProc, NULL);
-	if (0 != ret)
+	for (int i = 0; i < workerThreadCnt; i++)
 	{
-		perror("create connect thread fail");
-		return -2;
+		pthread_t tid;
+		int ret = pthread_create(&tid, NULL, WorkerThreadProc, NULL);
+		if (0 != ret)
+		{
+			perror("create connect thread fail");
+			return -2;
+		}
 	}
 
 	struct epoll_event ev, events[MAX_EVENTS];
