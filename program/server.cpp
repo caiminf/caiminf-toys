@@ -29,7 +29,7 @@ struct TaskInfo
 };
 
 LockedList<TaskInfo> g_TaskList;
-bool g_exitFlag;
+static bool g_exitFlag;
 
 int CreateTcpSocket(unsigned short port)
 {

@@ -17,6 +17,12 @@ using std::string;
 using std::map;
 using std::vector;
 
+static bool g_exitFlag;
+static int64_t g_rangeStart;
+static int64_t g_rangeStop;
+static int g_step;
+static int g_speed;
+
 string FormRequestString(map<string, string>& requestMap)
 {
 	string reqStr = "";
@@ -28,58 +34,33 @@ string FormRequestString(map<string, string>& requestMap)
 	return reqStr;
 }
 
-void *ClientThreadProc(void *lp)
+int ConnectToServer(const char *host, int port)
 {
-	int64_t calNum = *(int64_t*)lp;
 	int sockFd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockFd < 0)
 	{
 		perror("create socket error");
-		return NULL;
+		return -1;
 	}
 
 	struct sockaddr_in servaddr;
 	memset(&servaddr, 0, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(DEFAULT_PORT);
-	int ret = inet_pton(AF_INET, "127.0.0.1", &servaddr.sin_addr);
+	servaddr.sin_port = htons(port);
+	int ret = inet_pton(AF_INET, host, &servaddr.sin_addr);
 	if (ret <= 0)
 	{
 		perror("inet_pton failed");
-		return NULL;
+		return -2;
 	}
 
 	ret = connect(sockFd, (struct sockaddr*) &servaddr, sizeof(servaddr));
 	if (ret < 0)
 	{
 		perror("connect failed");
-		return NULL;
+		return -3;
 	}
-	
-	char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
-	char sendBuf[MAX_SEND_BUFFER_LEN] = { 0 };
-
-	map<string, string> reqMap = {
-		{ "request_id", "00001" },
-		{ "iterate_times", std::to_string(calNum) }
-	};
-	string reqStr = FormRequestString(reqMap);
-	strncpy(sendBuf, reqStr.c_str(), MAX_SEND_BUFFER_LEN);
-
-	printf("send msg to server: %s\n", sendBuf);
-	ret = send(sockFd, sendBuf, strnlen(sendBuf, MAX_SEND_BUFFER_LEN), 0);
-	if (ret < 0)
-	{
-		perror("send failed");
-		return NULL;
-	}
-	int nbytes = read(sockFd, recvBuf, sizeof(recvBuf));
-	if (nbytes < 0)
-	{
-		perror("read failed");
-		return NULL;
-	}
-	printf("recv: %s\n", recvBuf);
+	return sockFd;
 }
 
 void RandomVectorGen(int64_t start, int64_t stop, int cnt, vector<int64_t>& vec)
@@ -91,46 +72,126 @@ void RandomVectorGen(int64_t start, int64_t stop, int cnt, vector<int64_t>& vec)
 		int r = rand() % diff;
 		int64_t num = start + r;
 		vec.push_back(num);
-	}	
+	}
+}
+
+void *SendThreadProc(void *lp)
+{
+	int fd = *(int *)lp;
+	vector<int64_t> calNum;
+	RandomVectorGen(g_rangeStart, g_rangeStop, g_step, calNum);
+	int i = 0;
+	while (!g_exitFlag)
+	{
+		char sendBuf[MAX_SEND_BUFFER_LEN] = { 0 };
+
+		map<string, string> reqMap = {
+			{ "request_id", "00001" },
+			{ "iterate_times", std::to_string(calNum[i]) }
+		};
+		string reqStr = FormRequestString(reqMap);
+		strncpy(sendBuf, reqStr.c_str(), MAX_SEND_BUFFER_LEN);
+
+		printf("send msg to server: %s\n", sendBuf);
+		int ret = send(fd, sendBuf, strnlen(sendBuf, MAX_SEND_BUFFER_LEN), 0);
+		if (ret < 0)
+		{
+			perror("send failed");
+			return NULL;
+		}
+		i++;
+		if (i % g_step == 0)
+		{
+			i = 0;
+		}
+		usleep(1000000/g_speed);
+	}
+}
+
+void *RecvThreadProc(void *lp)
+{
+	int fd = *(int *)lp;
+	char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
+	while (!g_exitFlag)
+	{
+		int nbytes = read(fd, recvBuf, sizeof(recvBuf));
+		if (nbytes < 0)
+		{
+			perror("read failed");
+			return NULL;
+		}
+		printf("recv: %s\n", recvBuf);
+	}
 }
 
 int main(int argc, char *argv[])
 {
-	if (argc != 4)
+	if (argc != 6)
 	{
 		printf("invalid parameter\n");
-		printf("Usage: ./client [connection] [rangeStart] [rangeEnd]\n");
+		printf("Usage: ./client [connection] [rangeStart] [rangeEnd] [step] [speed]\n");
 		return -1;
 	}
+	g_exitFlag = false;
 
 	srand(time(NULL));   // Initialization, should only be called once.
 
 	int connCnt = atoi(argv[1]);
-	int64_t rangeStart = atoll(argv[2]);
-	int64_t rangeStop = atoll(argv[3]);
+	g_rangeStart = atoll(argv[2]);
+	g_rangeStop = atoll(argv[3]);
+	g_step = atoi(argv[4]);
+	g_speed = atoi(argv[5]);
 
-	vector<int64_t> calNum;
-	RandomVectorGen(rangeStart, rangeStop, connCnt, calNum);
+	pthread_t *sendThreadId = new pthread_t[connCnt];
+	pthread_t *recvThreadId = new pthread_t[connCnt];
+	int *fd = new int[connCnt];
 
-	pthread_t *tid = new pthread_t[connCnt];
 	for (int i = 0; i < connCnt; i++)
 	{
-		int ret = pthread_create(&tid[i], NULL, ClientThreadProc, &calNum[i]);
+		fd[i] = ConnectToServer("127.0.0.1", DEFAULT_PORT);
+		if (fd[i] < 0)
+		{
+			printf("connect to server failed, ret=%d\n", fd);
+			return -2;
+		}
+
+		int ret = pthread_create(&sendThreadId[i], NULL, SendThreadProc, &fd[i]);
 		if (ret != 0)
 		{
 			perror("pthread_create failed");
-			return -2;
+			return -3;
+		}
+		ret = pthread_create(&recvThreadId[i], NULL, RecvThreadProc, &fd[i]);
+		if (ret != 0)
+		{
+			perror("pthread_create failed");
+			return -4;
 		}
 	}
+
+	while (!g_exitFlag)
+	{
+		sleep(10);
+	}
+
 	for (int i = 0; i < connCnt; i++)
 	{
-		int ret = pthread_join(tid[i], NULL);
+		int ret = pthread_join(sendThreadId[i], NULL);
 		if (ret != 0)
 		{
 			perror("pthread_join failed");
-			return -3;
+			return -5;
+		}
+		ret = pthread_join(recvThreadId[i], NULL);
+		if (ret != 0)
+		{
+			perror("pthread_join failed");
+			return -6;
 		}
 	}
-	delete[] tid;
+	delete[] sendThreadId;
+	delete[] recvThreadId;
+	delete[] fd;
+
 	return 0;
 }
