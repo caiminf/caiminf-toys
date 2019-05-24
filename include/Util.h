@@ -1,5 +1,7 @@
 #pragma once
 #include <sys/types.h>
+#include <map>
+#include <string>
 
 #define int64_t long long
 
@@ -17,3 +19,5 @@ const int MAX_EVENTS = 256;
 int64_t GetTickCount(int nType = 1);
 
 int SetNonBlocking(int fd);
+
+std::map<std::string, std::string> FormStringToMap(std::string reqStr);

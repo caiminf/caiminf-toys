@@ -4,6 +4,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+using std::string;
+using std::map;
+
 ////////////////////////////////////////////////////////////
 //返回系统从某个时间点开始的时间计数
 //nType为时间单位:
@@ -34,4 +37,28 @@ int SetNonBlocking(int fd) {
 	s = fcntl(fd, F_GETFL, 0);
 	s |= O_NONBLOCK;
 	return fcntl(fd, F_SETFL, s);
+}
+
+map<string, string> FormStringToMap(string reqStr)
+{
+	map<string, string> res;
+	reqStr += '&';
+	int lastPos = 0;
+	for (int andPos = 0; andPos < reqStr.length(); andPos++)
+	{
+		if (reqStr[andPos] != '&')
+		{
+			continue;
+		}
+		int ePos = lastPos;
+		while (reqStr[ePos] != '=' & ePos < andPos)
+		{
+			ePos++;
+		}
+		string key = reqStr.substr(lastPos, ePos - lastPos);
+		string value = reqStr.substr(ePos + 1, andPos - ePos - 1);
+		res[key] = value;
+		lastPos = andPos + 1;
+	}
+	return res;
 }

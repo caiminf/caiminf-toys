@@ -24,7 +24,7 @@ struct TaskInfo
 {
 	string reqId;
 	int64_t iterateTimes;
-	uint64_t recvTime;
+	uint64_t sendTime;
 	int sock;
 };
 
@@ -64,30 +64,6 @@ int CreateTcpSocket(unsigned short port)
 	return fd;
 }
 
-map<string, string> FormStringToMap(string reqStr)
-{
-	map<string, string> res;
-	reqStr += '&';
-	int lastPos = 0;
-	for (int andPos = 0; andPos < reqStr.length(); andPos++)
-	{
-		if (reqStr[andPos] != '&')
-		{
-			continue;
-		}
-		int ePos = lastPos;
-		while (reqStr[ePos] != '=' & ePos < andPos)
-		{
-			ePos++;
-		}
-		string key = reqStr.substr(lastPos, ePos - lastPos);
-		string value = reqStr.substr(ePos + 1, andPos - ePos - 1);
-		res[key] = value;
-		lastPos = andPos + 1;
-	}
-	return res;
-}
-
 int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int sock)
 {
 	if (resTask == NULL)
@@ -116,8 +92,17 @@ int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int 
 	{
 		resTask->iterateTimes = atoll(iter->second.c_str());
 	}
+	iter = reqMap.find("send_time");
+	if (iter == reqMap.end())
+	{
+		printf("send_time not found\n");
+		return -3;
+	}
+	else
+	{
+		resTask->sendTime = atoll(iter->second.c_str());
+	}
 	resTask->sock = sock;
-	resTask->recvTime = GetTickCount(1);
 	return 0;
 }
 
@@ -175,9 +160,7 @@ int ProcessTask(const TaskInfo& task, string &response)
 			tmpPace = pace;
 		}
 	}
-	int64_t tcEnd = GetTickCount(1);
-	int64_t cost = tcEnd - tcStart;
-	response = "request_id=" + task.reqId + "&costTime=" + std::to_string(cost);
+	response = "request_id=" + task.reqId + "&send_time=" + std::to_string(task.sendTime);
 	return 0;
 }
 
@@ -250,7 +233,7 @@ int main(int argc, char *argv[])
 					{
 						perror("accept error");
 					}
-					printf("conncetsot error\n");
+					printf("conncetion error\n");
 					continue;
 				}
 				printf("accept new connection\n");

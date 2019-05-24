@@ -87,7 +87,8 @@ void *SendThreadProc(void *lp)
 
 		map<string, string> reqMap = {
 			{ "request_id", "00001" },
-			{ "iterate_times", std::to_string(calNum[i]) }
+			{ "iterate_times", std::to_string(calNum[i]) },
+			{ "send_time", std::to_string(GetTickCount(1))}
 		};
 		string reqStr = FormRequestString(reqMap);
 		strncpy(sendBuf, reqStr.c_str(), MAX_SEND_BUFFER_LEN);
@@ -120,7 +121,27 @@ void *RecvThreadProc(void *lp)
 			perror("read failed");
 			return NULL;
 		}
-		printf("recv: %s\n", recvBuf);
+		map<string, string>response = FormStringToMap(recvBuf);
+
+		map<string, string>::iterator iter = response.find("request_id");
+		if (iter == response.end())
+		{
+			printf("response request_id not found\n");
+			continue;
+		}
+		string requestId = iter->second;
+
+		iter = response.find("send_time");
+		if (iter == response.end())
+		{
+			printf("response send_time not found, request_id=%s\n", requestId.c_str());
+			continue;
+		}
+		int64_t sendTime = atoll(iter->second.c_str());
+
+		int64_t costTime = GetTickCount(1) - sendTime;
+
+		printf("request_id: %s costTime: %ld\n",  requestId.c_str(), costTime);
 	}
 }
 
