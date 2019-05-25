@@ -106,7 +106,7 @@ int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int 
 	return 0;
 }
 
-void ReadTaskFromSocket(int fd)
+bool ReadTaskFromSocket(int fd)
 {
 	bool done = false;
 	while (true)
@@ -118,7 +118,7 @@ void ReadTaskFromSocket(int fd)
 		{
 			// EOF
 			done = true;
-			break;
+			return false;
 		}
 		else if (count == -1)
 		{
@@ -128,7 +128,7 @@ void ReadTaskFromSocket(int fd)
 				perror("read error");
 				done = true;
 			}
-			break;
+			return true;
 		}
 		else
 		{
@@ -244,10 +244,17 @@ int main(int argc, char *argv[])
 			}
 			else
 			{
-				ReadTaskFromSocket(events[i].data.fd);
+				bool flag = ReadTaskFromSocket(events[i].data.fd);
+				if (!flag) // EOF, connection closed by client
+				{
+					epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, &events[i]);
+					close(events[i].data.fd);
+				}
 			}
 		}
 	}
+
+	printf("program exit normally\n");
 
 	return 0;
 }

@@ -9,6 +9,7 @@ const int DEFAULT_PORT = 8000;
 const int MAX_RECV_BUFFER_LEN = 4096;
 const int MAX_SEND_BUFFER_LEN = 4096;
 const int MAX_EVENTS = 256;
+const int REQUEST_ID_LEN = 8;
 
 ////////////////////////////////////////////////////////////
 //返回系统从某个时间点开始的时间计数

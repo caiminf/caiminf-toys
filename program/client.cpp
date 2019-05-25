@@ -22,6 +22,7 @@ static int64_t g_rangeStart;
 static int64_t g_rangeStop;
 static int g_step;
 static int g_speed;
+static int g_reqId;
 
 string FormRequestString(map<string, string>& requestMap)
 {
@@ -75,6 +76,22 @@ void RandomVectorGen(int64_t start, int64_t stop, int cnt, vector<int64_t>& vec)
 	}
 }
 
+string GetReqId()
+{
+	int reqId = __sync_fetch_and_add(&g_reqId, 1);
+	if (reqId == 99999999)
+	{
+		g_reqId = 0;
+	}
+	string strReqId = std::to_string(reqId);
+	int len = strReqId.length();
+	for (int i = 0; i < REQUEST_ID_LEN - len; i++)
+	{
+		strReqId = "0" + strReqId;
+	}
+	return strReqId;
+}
+
 void *SendThreadProc(void *lp)
 {
 	int fd = *(int *)lp;
@@ -84,9 +101,9 @@ void *SendThreadProc(void *lp)
 	while (!g_exitFlag)
 	{
 		char sendBuf[MAX_SEND_BUFFER_LEN] = { 0 };
-
+		string reqId = GetReqId();
 		map<string, string> reqMap = {
-			{ "request_id", "00001" },
+			{ "request_id", reqId },
 			{ "iterate_times", std::to_string(calNum[i]) },
 			{ "send_time", std::to_string(GetTickCount(1))}
 		};
@@ -154,6 +171,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	g_exitFlag = false;
+	g_reqId = 0;
 
 	srand(time(NULL));   // Initialization, should only be called once.
 
