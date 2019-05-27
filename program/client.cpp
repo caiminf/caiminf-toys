@@ -133,6 +133,7 @@ void *RecvThreadProc(void *lp)
 	while (!g_exitFlag)
 	{
 		int nbytes = read(fd, recvBuf, sizeof(recvBuf));
+		printf("recv: %s\n", recvBuf);
 		if (nbytes < 0)
 		{
 			perror("read failed");
