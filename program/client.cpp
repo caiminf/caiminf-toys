@@ -129,11 +129,10 @@ void *SendThreadProc(void *lp)
 void *RecvThreadProc(void *lp)
 {
 	int fd = *(int *)lp;
-	char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
 	while (!g_exitFlag)
 	{
+		char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
 		int nbytes = read(fd, recvBuf, sizeof(recvBuf));
-		printf("recv: %s\n", recvBuf);
 		if (nbytes < 0)
 		{
 			perror("read failed");

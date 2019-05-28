@@ -114,7 +114,6 @@ bool ReadTaskFromSocket(int fd)
 		char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
 		
 		int count = read(fd, recvBuf, sizeof(recvBuf));
-		printf("recv: %s\n", recvBuf);
 		if (count == 0)
 		{
 			// EOF
@@ -177,7 +176,6 @@ void *WorkerThreadProc(void *lp)
 			printf("ProcessTask failed reqest_id=%s\n", task.reqId.c_str());
 			continue;
 		}
-		printf("send: %s\n", response.c_str());
 		int nbytes = write(task.sock, response.c_str(), response.length());
 	}
 }
