@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
 	g_exitFlag = false;
 	g_reqId = 0;
 
-	srand(time(NULL));   // Initialization, should only be called once.
+	srand(time(NULL));
 
 	int connCnt = atoi(argv[1]);
 	g_rangeStart = atoll(argv[2]);
