@@ -11,6 +11,14 @@ const int MAX_SEND_BUFFER_LEN = 4096;
 const int MAX_EVENTS = 256;
 const int REQUEST_ID_LEN = 8;
 
+struct TaskInfo
+{
+	std::string reqId;
+	int64_t iterateTimes;
+	uint64_t sendTime;
+	int sock;
+};
+
 ////////////////////////////////////////////////////////////
 //返回系统从某个时间点开始的时间计数
 //nType为时间单位:

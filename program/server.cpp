@@ -20,14 +20,6 @@ using std::map;
 using std::string;
 using std::queue;
 
-struct TaskInfo
-{
-	string reqId;
-	int64_t iterateTimes;
-	uint64_t sendTime;
-	int sock;
-};
-
 LockedList<TaskInfo> g_TaskList;
 static bool g_exitFlag;
 
