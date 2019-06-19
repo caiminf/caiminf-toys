@@ -1,5 +1,6 @@
 #include "Connection.h"
 #include <unistd.h>
+#include <string.h>
 #include <map>
 #include <string>
 
