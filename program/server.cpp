@@ -11,17 +11,21 @@
 #include <string>
 #include <map>
 #include <queue>
+#include <vector>
 #include <sys/epoll.h>
 
 #include "Util.h"
 #include "LockedList.h"
+#include "Connection.h"
 
 using std::map;
 using std::string;
 using std::queue;
+using std::vector;
 
 LockedList<TaskInfo> g_TaskList;
 static bool g_exitFlag;
+map<int, Connection> g_connections;
 
 int CreateTcpSocket(unsigned short port)
 {
@@ -54,87 +58,6 @@ int CreateTcpSocket(unsigned short port)
 		return -4;
 	}
 	return fd;
-}
-
-int ParseReqToTask(const char*inputBuf, int inputBufLen, TaskInfo* resTask, int sock)
-{
-	if (resTask == NULL)
-	{
-		printf("resTask is NULL\n");
-		return -1;
-	}
-	map<string, string> reqMap = FormStringToMap(string(inputBuf));
-	map<string, string>::iterator iter = reqMap.find("request_id");
-	if (iter == reqMap.end())
-	{
-		printf("request_id not found\n");
-		return -2;
-	}
-	else
-	{
-		resTask->reqId = iter->second;
-	}
-	iter = reqMap.find("iterate_times");
-	if (iter == reqMap.end())
-	{
-		printf("iterate_times not found\n");
-		return -3;
-	}
-	else
-	{
-		resTask->iterateTimes = atoll(iter->second.c_str());
-	}
-	iter = reqMap.find("send_time");
-	if (iter == reqMap.end())
-	{
-		printf("send_time not found\n");
-		return -3;
-	}
-	else
-	{
-		resTask->sendTime = atoll(iter->second.c_str());
-	}
-	resTask->sock = sock;
-	return 0;
-}
-
-bool ReadTaskFromSocket(int fd)
-{
-	bool done = false;
-	while (true)
-	{
-		char recvBuf[MAX_RECV_BUFFER_LEN] = { 0 };
-		
-		int count = read(fd, recvBuf, sizeof(recvBuf));
-		if (count == 0)
-		{
-			// EOF
-			done = true;
-			return false;
-		}
-		else if (count == -1)
-		{
-			// error or EAGAIN
-			if (errno != EAGAIN && errno != EWOULDBLOCK)
-			{
-				perror("read error");
-				done = true;
-			}
-			return true;
-		}
-		else
-		{
-			TaskInfo taskInfo;
-			int ret = ParseReqToTask(recvBuf, count, &taskInfo, fd);
-			if (ret != 0)
-			{
-				printf("ParseReqToTask error, ret=%d\n", ret);
-				continue;
-			}
-			g_TaskList.push(taskInfo);
-			printf("task list size = %d\n", g_TaskList.size());
-		}
-	}
 }
 
 int ProcessTask(const TaskInfo& task, string &response)
@@ -233,15 +156,30 @@ int main(int argc, char *argv[])
 				ev.events = EPOLLIN | EPOLLET;
 				ev.data.fd = connectSocket;
 				epoll_ctl(epollFd, EPOLL_CTL_ADD, connectSocket, &ev);
+				Connection conn(connectSocket);
+				g_connections[connectSocket] = conn;
+
 			}
 			else
 			{
-				bool flag = ReadTaskFromSocket(events[i].data.fd);
-				if (!flag) // EOF, connection closed by client
+				map<int, Connection>::iterator iter = g_connections.find(events[i].data.fd);
+				if (iter == g_connections.end())
 				{
-					epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, &events[i]);
-					close(events[i].data.fd);
+					printf("connection not found, sock=%d\n", events[i].data.fd);
+					return -1;
 				}
+				vector<TaskInfo> taskArr;
+				int taskCnt = (iter->second).read(taskArr);
+				
+				for (int i = 0; i < taskCnt; i++)
+				{
+					g_TaskList.push(taskArr[i]);
+				}
+				//if (!flag) // EOF, connection closed by client
+				//{
+				//	epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, &events[i]);
+				//	close(events[i].data.fd);
+				//}
 			}
 		}
 	}

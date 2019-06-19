@@ -4,7 +4,8 @@
 
 class Connection
 {
-	Connection();
+public:
+	Connection(int socket);
 	int read(std::vector<TaskInfo>& tasks);
 private:
 	int ParseReqToTask(const char*inputBuf, TaskInfo* resTask);

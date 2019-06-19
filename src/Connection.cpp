@@ -7,7 +7,8 @@
 using std::string;
 using std::map;
 
-Connection::Connection():m_bufEndPointer(0)
+Connection::Connection(int socket):m_bufEndPointer(0),
+								   m_socket(socket)
 {
 	memset(m_recvBuf, 0, sizeof(m_recvBuf));
 }
